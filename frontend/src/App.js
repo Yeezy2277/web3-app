@@ -19,21 +19,12 @@ function App() {
     setData(dataCopy);
   }
   const web3 = new Web3(window.ethereum);
+  const contract = new web3.eth.Contract(contractABI, data.address);
 
   const handleCreateCollection = async () => {
     setError('');
     try {
-      const event = {
-        collection: data.address,
-        name: data.name,
-        symbol: data.symbol,
-      };
-      console.log(event)
-      await axios.post(SERVER_URL, event);
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const web3 = new Web3(window.ethereum);
-      const contract = new web3.eth.Contract(contractABI, data.address);
-  
       await contract.methods.createCollection(data.name, data.symbol).send({ from: accounts[0] });
       console.log('Collection created');
     } catch (error) {
@@ -41,23 +32,37 @@ function App() {
       console.error(error.message);
     }
   };
+
+  const collectionCreatedEvent = contract.events.CollectionCreated;
+  const tokenMintedEvent = contract.events.TokenMinted;
+
+  collectionCreatedEvent({})
+  .on('data', async (event) => {
+    await axios.post(SERVER_URL, event);
+    console.log(event);
+  })
+  .on('error', (error) => {
+    setError(error.message)
+    console.error(error);
+  });
+
+  tokenMintedEvent({})
+  .on('data', async (event) => {
+    await axios.post(SERVER_URL, event);
+    console.log(event);
+  })
+  .on('error', (error) => {
+    setError(error.message)
+    console.error(error);
+  });
+
   
   const handleMintToken = async () => {
     setError('');
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const web3 = new Web3(window.ethereum);
-      const contract = new web3.eth.Contract(contractABI, contractAddress);
-  
       await contract.methods.mintToken().send({ from: accounts[0] });
       console.log('Token minted');
-      const event = {
-        collection: data.address,
-        recipient: accounts[0],
-        tokenId: '', // It needs tokenId
-        tokenUri: '', // It needs tokenId
-      };
-      await axios.post(SERVER_URL, event);
     } catch (error) {
       setError(error.message)
       console.error(error);
