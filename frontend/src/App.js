@@ -9,9 +9,10 @@ import Alert from '@mui/material/Alert';
 import axios from 'axios';
 
 function App() {
-  const [contractAddress, setContractAddress] = useState('0xd38d9f11cca0df593dAc45Eb5741Ec3e5A65D519');
+  const [contractAddress, setContractAddress] = useState('0x2b2873C361b5D210328b3C27719D404ED3DacFBb');
   const [error, setError] = useState('');
-  const [data, setData] = useState({name: '', symbol: '', address: ''});
+  const [success, setSuccess] = useState('');
+  const [data, setData] = useState({name: '', symbol: ''});
   const SERVER_URL = 'http://localhost:4000/events';
   const updateData = (key, value) => {
     const dataCopy = {...data};
@@ -19,42 +20,43 @@ function App() {
     setData(dataCopy);
   }
   const web3 = new Web3(window.ethereum);
-  const contract = new web3.eth.Contract(contractABI, data.address);
+  const contract = new web3.eth.Contract(contractABI, contractAddress);
 
   const handleCreateCollection = async () => {
     setError('');
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       await contract.methods.createCollection(data.name, data.symbol).send({ from: accounts[0] });
-      console.log('Collection created');
+      setSuccess('Collection created')
     } catch (error) {
       setError(error.message)
       console.error(error.message);
     }
   };
 
-  const collectionCreatedEvent = contract.events.CollectionCreated;
-  const tokenMintedEvent = contract.events.TokenMinted;
 
-  collectionCreatedEvent({})
-  .on('data', async (event) => {
-    await axios.post(SERVER_URL, event);
-    console.log(event);
-  })
-  .on('error', (error) => {
-    setError(error.message)
-    console.error(error);
-  });
+  contract.events.CollectionCreated({}, async (error, event) => {
+    if (!error) {
+      await axios.post(SERVER_URL, event);
+      setSuccess('Event has added to store')
+      console.log(event);
+    } else {
+      setError(error.message)
+      console.error(error);
+    }
 
-  tokenMintedEvent({})
-  .on('data', async (event) => {
-    await axios.post(SERVER_URL, event);
-    console.log(event);
   })
-  .on('error', (error) => {
-    setError(error.message)
-    console.error(error);
-  });
+
+  contract.events.TokenMinted({}, async (error, event) => {
+    if (!error) {
+      await axios.post(SERVER_URL, event);
+      console.log(event);
+      setSuccess('Event has added to store')
+    } else {
+      setError(error.message)
+      console.error(error);
+    }
+  })
 
   
   const handleMintToken = async () => {
@@ -62,6 +64,7 @@ function App() {
     try {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       await contract.methods.mintToken().send({ from: accounts[0] });
+      setSuccess('Collection created')
       console.log('Token minted');
     } catch (error) {
       setError(error.message)
@@ -72,8 +75,8 @@ function App() {
   return (
     <div className="App">
       {error && <Alert style={{marginTop: 50}} severity="error">{error}</Alert>}
+      {success && <Alert style={{marginTop: 50}} severity="success">{success}</Alert>}
       <h1>Create and ming NFT collection</h1>
-      <TextField onChange={(e) => updateData('address', e.target.value)} id="filled-basic" label="Wallet" variant="filled" />
       <TextField onChange={(e) => updateData('name', e.target.value)} id="filled-basic" label="Name" variant="filled" />
       <TextField onChange={(e) => updateData('symbol', e.target.value)} id="filled-basic" label="Symbol" variant="filled" />
       <Button onClick={handleCreateCollection} variant="contained">Create</Button>
